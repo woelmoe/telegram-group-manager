@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Group Manager</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="window-controls">
+    <div class="title">Telegram Group Manager</div>
+    <div class="controls">
+      <button id="minimize-btn">─</button>
+      <button id="maximize-btn">□</button>
+      <button id="close-btn">✕</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>📋 Управление участниками групп Telegram</h1>
+    
+    <div id="status" class="status-panel"></div>
+
+    <div class="main-panel">
+      <div class="section">
+        <h2>🔐 Авторизация MTProto</h2>
+        <div id="mtproto-status" class="status-badge">Не авторизован</div>
+        <div id="code-input-area" style="display: none;">
+          <input type="text" id="code-input" placeholder="Введите код из Telegram">
+          <button id="submit-code">Подтвердить</button>
+        </div>
+        <button id="init-mtproto" class="primary">Авторизоваться</button>
+      </div>
+
+      <div class="section">
+        <h2>📥 Исходная группа</h2>
+        <input type="text" id="source-group" placeholder="ID группы (например, -1001234567890)">
+        <button id="load-members" disabled>📊 Загрузить участников</button>
+        <div id="group-info"></div>
+        <div id="members-list"></div>
+      </div>
+
+      <div class="section">
+        <h2>📤 Целевая группа</h2>
+        <input type="text" id="target-group" placeholder="ID группы для добавления">
+        <input type="text" id="excluded-user" placeholder="ID пользователя для исключения (опционально)">
+        <button id="add-members" disabled>➕ Добавить участников</button>
+        <div id="progress-area" style="display: none;">
+          <progress id="progress-bar" value="0" max="100"></progress>
+          <span id="progress-text">0/0</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>📈 Результаты</h2>
+        <pre id="results"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
