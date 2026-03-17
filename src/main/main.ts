@@ -103,16 +103,22 @@ app.on("window-all-closed", async () => {
 })
 
 // Обработчики IPC событий
-ipcMain.handle("mtproto-init", async (_, code?: string) => {
+ipcMain.handle("mtproto-init", async (_, code?: string, password?: string) => {
   try {
     if (!mtproto) {
       throw new Error("MTProto сервис не инициализирован")
     }
-    console.log("Вызов mtproto.init с кодом:", code ? "***" : "без кода")
-    const result = await mtproto.init(code)
+    console.log(
+      "Вызов mtproto.init с кодом:",
+      code ? "***" : "без кода",
+      "password:",
+      password ? "***" : "без пароля",
+    )
+
+    const result = await mtproto.init(code, password)
     console.log("Результат mtproto.init:", result)
     return result
-  } catch (error) {
+  } catch (error: any) {
     console.error("MTProto init error:", error)
     throw error
   }

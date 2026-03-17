@@ -33,7 +33,7 @@ export interface ElectronAPI {
   closeWindow: () => void
 
   // MTProto методы
-  initMTProto: (code?: string) => Promise<boolean>
+  initMTProto: (code?: string, password?: string) => Promise<boolean>
   getGroupMembers: (groupId: number) => Promise<TelegramUser[]>
   getGroupInfo: (groupId: number) => Promise<GroupInfo>
 

@@ -1,215 +1,415 @@
-declare global {
-  interface Window {
-    electronAPI: {
-      minimizeWindow: () => void;
-      maximizeWindow: () => void;
-      closeWindow: () => void;
-      initMTProto: (code?: string) => Promise<boolean>;
-      getGroupMembers: (groupId: number) => Promise<any[]>;
-      getGroupInfo: (groupId: number) => Promise<any>;
-      addMembers: (targetId: number, users: any[], excludedId?: number) => Promise<any>;
-      verifyBot: (groupId: number) => Promise<boolean>;
-      onProgress: (callback: (current: number, total: number) => void) => void;
-      removeListeners: () => void;
-    }
-  }
+let requires2FA = false
+let tempCode = ""
+
+// Проверяем, что electronAPI доступен
+if (!window.electronAPI) {
+  console.error("electronAPI не найден! Проверьте preload скрипт.")
 }
 
 // Управление окном
-document.getElementById('minimize-btn')?.addEventListener('click', () => {
-  window.electronAPI.minimizeWindow();
-});
+document.getElementById("minimize-btn")?.addEventListener("click", () => {
+  window.electronAPI?.minimizeWindow()
+})
 
-document.getElementById('maximize-btn')?.addEventListener('click', () => {
-  window.electronAPI.maximizeWindow();
-});
+document.getElementById("maximize-btn")?.addEventListener("click", () => {
+  window.electronAPI?.maximizeWindow()
+})
 
-document.getElementById('close-btn')?.addEventListener('click', () => {
-  window.electronAPI.closeWindow();
-});
+document.getElementById("close-btn")?.addEventListener("click", () => {
+  window.electronAPI?.closeWindow()
+})
 
 // Состояние приложения
-let isMtProtoAuthorized = false;
-let currentMembers: any[] = [];
-let currentGroupInfo: any = null;
+let isMtProtoAuthorized = false
+let currentMembers: any[] = []
+let currentGroupInfo: any = null
 
-// DOM элементы
-const statusPanel = document.getElementById('status') as HTMLDivElement;
-const mtprotoStatus = document.getElementById('mtproto-status') as HTMLDivElement;
-const codeInputArea = document.getElementById('code-input-area') as HTMLDivElement;
-const initBtn = document.getElementById('init-mtproto') as HTMLButtonElement;
-const submitCodeBtn = document.getElementById('submit-code') as HTMLButtonElement;
-const loadMembersBtn = document.getElementById('load-members') as HTMLButtonElement;
-const addMembersBtn = document.getElementById('add-members') as HTMLButtonElement;
+// DOM элементы с проверкой на null
+const statusPanel = document.getElementById("status") as HTMLDivElement | null
+const mtprotoStatus = document.getElementById(
+  "mtproto-status",
+) as HTMLDivElement | null
+const codeInputArea = document.getElementById(
+  "code-input-area",
+) as HTMLDivElement | null
+const initBtn = document.getElementById(
+  "init-mtproto",
+) as HTMLButtonElement | null
+const submitCodeBtn = document.getElementById(
+  "submit-code",
+) as HTMLButtonElement | null
+const loadMembersBtn = document.getElementById(
+  "load-members",
+) as HTMLButtonElement | null
+const addMembersBtn = document.getElementById(
+  "add-members",
+) as HTMLButtonElement | null
 
 // Функция для отображения статуса
-function showStatus(message: string, isError: boolean = false) {
-  statusPanel.style.display = 'block';
-  statusPanel.textContent = message;
-  statusPanel.style.backgroundColor = isError ? '#f8d7da' : '#fff3cd';
-  statusPanel.style.color = isError ? '#721c24' : '#856404';
-  
+function showStatus(message: string, isError: boolean = false): void {
+  if (!statusPanel) return
+
+  statusPanel.style.display = "block"
+  statusPanel.textContent = message
+  statusPanel.style.backgroundColor = isError ? "#f8d7da" : "#fff3cd"
+  statusPanel.style.color = isError ? "#721c24" : "#856404"
+
   setTimeout(() => {
-    statusPanel.style.display = 'none';
-  }, 5000);
+    statusPanel.style.display = "none"
+  }, 5000)
 }
 
 // Инициализация MTProto
-initBtn.addEventListener('click', async () => {
+initBtn?.addEventListener("click", async () => {
+  console.log("Кнопка авторизации нажата")
+
+  if (!window.electronAPI) {
+    console.error("electronAPI не найден!")
+    showStatus("❌ electronAPI не доступен", true)
+    return
+  }
+
   try {
-    initBtn.disabled = true;
-    initBtn.textContent = 'Авторизация...';
-    
-    const result = await window.electronAPI.initMTProto();
-    
-    if (result) {
-      isMtProtoAuthorized = true;
-      mtprotoStatus.textContent = 'Авторизован';
-      mtprotoStatus.className = 'status-badge authorized';
-      loadMembersBtn.disabled = false;
-      showStatus('✅ MTProto успешно авторизован');
-      codeInputArea.style.display = 'none';
+    initBtn.disabled = true
+    initBtn.textContent = "Авторизация..."
+
+    console.log("Вызов electronAPI.initMTProto()")
+    const result = await window.electronAPI.initMTProto()
+    console.log("Результат initMTProto:", result)
+
+    if (result === true) {
+      isMtProtoAuthorized = true
+      if (mtprotoStatus) {
+        mtprotoStatus.textContent = "Авторизован"
+        mtprotoStatus.className = "status-badge authorized"
+      }
+      if (loadMembersBtn) loadMembersBtn.disabled = false
+      showStatus("✅ MTProto успешно авторизован")
+      if (codeInputArea) codeInputArea.style.display = "none"
     } else {
-      // Требуется код подтверждения
-      codeInputArea.style.display = 'block';
-      showStatus('📱 Введите код подтверждения из Telegram');
+      if (codeInputArea) codeInputArea.style.display = "block"
+      showStatus("📱 Введите код подтверждения из Telegram")
     }
   } catch (error: any) {
-    showStatus(`❌ Ошибка авторизации: ${error.message}`, true);
+    console.error("Ошибка авторизации:", error)
+    showStatus(`❌ Ошибка авторизации: ${error.message}`, true)
   } finally {
-    initBtn.disabled = false;
-    initBtn.textContent = 'Авторизоваться';
+    if (initBtn) {
+      initBtn.disabled = false
+      initBtn.textContent = "Авторизоваться"
+    }
   }
-});
+})
 
 // Отправка кода подтверждения
-submitCodeBtn.addEventListener('click', async () => {
-  const code = (document.getElementById('code-input') as HTMLInputElement).value;
-  if (!code) return;
+// Замените весь обработчик submitCodeBtn на этот:
+
+submitCodeBtn?.addEventListener("click", async () => {
+  const codeInput = document.getElementById("code-input") as HTMLInputElement
+  const code = codeInput?.value
+
+  if (!code) {
+    showStatus("❌ Введите код подтверждения", true)
+    return
+  }
 
   try {
-    submitCodeBtn.disabled = true;
-    submitCodeBtn.textContent = 'Проверка...';
-    
-    const result = await window.electronAPI.initMTProto(code);
-    
-    if (result) {
-      isMtProtoAuthorized = true;
-      mtprotoStatus.textContent = 'Авторизован';
-      mtprotoStatus.className = 'status-badge authorized';
-      loadMembersBtn.disabled = false;
-      showStatus('✅ MTProto успешно авторизован');
-      codeInputArea.style.display = 'none';
+    submitCodeBtn.disabled = true
+    submitCodeBtn.textContent = "Проверка..."
+
+    // Если ожидается 2FA пароль
+    if (requires2FA) {
+      const result = await window.electronAPI.initMTProto(tempCode, code)
+
+      if (result === true) {
+        isMtProtoAuthorized = true
+        if (mtprotoStatus) {
+          mtprotoStatus.textContent = "Авторизован"
+          mtprotoStatus.className = "status-badge authorized"
+        }
+        if (loadMembersBtn) loadMembersBtn.disabled = false
+        showStatus("✅ 2FA авторизация успешна")
+        if (codeInputArea) codeInputArea.style.display = "none"
+        requires2FA = false
+
+        codeInput.placeholder = "Введите код из Telegram"
+        submitCodeBtn.textContent = "Подтвердить"
+      } else {
+        showStatus("❌ Ошибка 2FA пароля", true)
+      }
+      return
+    }
+
+    // Обычный код подтверждения
+    const result = await window.electronAPI.initMTProto(code)
+
+    if (result === true) {
+      isMtProtoAuthorized = true
+      if (mtprotoStatus) {
+        mtprotoStatus.textContent = "Авторизован"
+        mtprotoStatus.className = "status-badge authorized"
+      }
+      if (loadMembersBtn) loadMembersBtn.disabled = false
+      showStatus("✅ MTProto успешно авторизован")
+      if (codeInputArea) codeInputArea.style.display = "none"
+
+      // ИСПРАВЛЕНО: Проверяем тип результата
+    } else if (
+      result !== null &&
+      typeof result === "object" &&
+      result === "2FA_REQUIRED"
+    ) {
+      // Этот блок может не понадобиться, так как initMTProto теперь возвращает строку или boolean
+      requires2FA = true
+      tempCode = code
+      showStatus("🔐 Требуется двухфакторный пароль", false)
+
+      codeInput.placeholder = "Введите 2FA пароль"
+      codeInput.value = ""
+      submitCodeBtn.textContent = "Отправить пароль"
+
+      // ИСПРАВЛЕНО: Добавляем проверку на строку '2FA_REQUIRED'
+    } else if (typeof result === "string" && result === "2FA_REQUIRED") {
+      requires2FA = true
+      tempCode = code
+      showStatus("🔐 Требуется двухфакторный пароль", false)
+
+      codeInput.placeholder = "Введите 2FA пароль"
+      codeInput.value = ""
+      submitCodeBtn.textContent = "Отправить пароль"
+    } else {
+      showStatus("📱 Код отправлен, проверьте Telegram")
     }
   } catch (error: any) {
-    showStatus(`❌ Ошибка: ${error.message}`, true);
+    showStatus(`❌ Ошибка: ${error.message}`, true)
   } finally {
-    submitCodeBtn.disabled = false;
-    submitCodeBtn.textContent = 'Подтвердить';
+    if (submitCodeBtn) {
+      submitCodeBtn.disabled = false
+    }
   }
-});
+})
 
 // Загрузка участников
-loadMembersBtn.addEventListener('click', async () => {
-  const sourceGroup = (document.getElementById('source-group') as HTMLInputElement).value;
+loadMembersBtn?.addEventListener("click", async () => {
+  const sourceGroupInput = document.getElementById(
+    "source-group",
+  ) as HTMLInputElement
+  const sourceGroup = sourceGroupInput?.value
+
   if (!sourceGroup) {
-    showStatus('❌ Введите ID исходной группы', true);
-    return;
+    showStatus("❌ Введите ID исходной группы", true)
+    return
   }
 
   try {
-    loadMembersBtn.disabled = true;
-    loadMembersBtn.textContent = 'Загрузка...';
-    
-    // Получаем информацию о группе
-    const groupInfo = await window.electronAPI.getGroupInfo(parseInt(sourceGroup));
-    currentGroupInfo = groupInfo;
-    
-    // Получаем участников
-    const members = await window.electronAPI.getGroupMembers(parseInt(sourceGroup));
-    currentMembers = members;
-    
-    // Отображаем информацию
-    const groupInfoDiv = document.getElementById('group-info') as HTMLDivElement;
-    groupInfoDiv.innerHTML = `
-      <div><strong>Группа:</strong> ${groupInfo.title || groupInfo.id}</div>
-      <div><strong>Участников:</strong> ${members.length}</div>
-    `;
-    
-    // Отображаем первых 20 участников
-    const membersList = document.getElementById('members-list') as HTMLDivElement;
-    membersList.innerHTML = '<strong>Первые 20 участников:</strong>' + 
-      members.slice(0, 20).map(m => 
-        `<div class="member-item">👤 ${m.firstName || ''} ${m.lastName || ''} (@${m.username || 'нет username'})</div>`
-      ).join('');
-    
-    // Проверяем бота в целевой группе
-    const targetGroup = (document.getElementById('target-group') as HTMLInputElement).value;
+    loadMembersBtn.disabled = true
+    loadMembersBtn.textContent = "Загрузка..."
+
+    const groupInfo = await window.electronAPI.getGroupInfo(
+      parseInt(sourceGroup),
+    )
+    currentGroupInfo = groupInfo
+
+    const members = await window.electronAPI.getGroupMembers(
+      parseInt(sourceGroup),
+    )
+    currentMembers = members
+
+    const groupInfoDiv = document.getElementById("group-info") as HTMLDivElement
+    if (groupInfoDiv) {
+      groupInfoDiv.innerHTML = `
+                <div><strong>Группа:</strong> ${groupInfo.title || groupInfo.id}</div>
+                <div><strong>Участников:</strong> ${members.length}</div>
+            `
+    }
+
+    const membersList = document.getElementById(
+      "members-list",
+    ) as HTMLDivElement
+    if (membersList) {
+      membersList.innerHTML =
+        "<strong>Первые 20 участников:</strong>" +
+        members
+          .slice(0, 20)
+          .map(
+            (m: any) =>
+              `<div class="member-item">👤 ${m.firstName || ""} ${m.lastName || ""} (@${m.username || "нет username"})</div>`,
+          )
+          .join("")
+    }
+
+    const targetGroupInput = document.getElementById(
+      "target-group",
+    ) as HTMLInputElement
+    const targetGroup = targetGroupInput?.value
+
     if (targetGroup) {
-      const isBotValid = await window.electronAPI.verifyBot(parseInt(targetGroup));
-      addMembersBtn.disabled = !isBotValid;
-      
+      const isBotValid = await window.electronAPI.verifyBot(
+        parseInt(targetGroup),
+      )
+      if (addMembersBtn) {
+        addMembersBtn.disabled = !isBotValid
+      }
+
       if (!isBotValid) {
-        showStatus('⚠️ Бот не является администратором в целевой группе', true);
+        showStatus("⚠️ Бот не является администратором в целевой группе", true)
       }
     }
-    
-    showStatus(`✅ Загружено ${members.length} участников`);
+
+    showStatus(`✅ Загружено ${members.length} участников`)
   } catch (error: any) {
-    showStatus(`❌ Ошибка загрузки: ${error.message}`, true);
+    showStatus(`❌ Ошибка загрузки: ${error.message}`, true)
   } finally {
-    loadMembersBtn.disabled = false;
-    loadMembersBtn.textContent = '📊 Загрузить участников';
+    if (loadMembersBtn) {
+      loadMembersBtn.disabled = false
+      loadMembersBtn.textContent = "📊 Загрузить участников"
+    }
   }
-});
+})
 
 // Добавление участников
-addMembersBtn.addEventListener('click', async () => {
-  const targetGroup = (document.getElementById('target-group') as HTMLInputElement).value;
-  const excludedUser = (document.getElementById('excluded-user') as HTMLInputElement).value;
-  
+addMembersBtn?.addEventListener("click", async () => {
+  const targetGroupInput = document.getElementById(
+    "target-group",
+  ) as HTMLInputElement
+  const excludedUserInput = document.getElementById(
+    "excluded-user",
+  ) as HTMLInputElement
+
+  const targetGroup = targetGroupInput?.value
+  const excludedUser = excludedUserInput?.value
+
   if (!targetGroup) {
-    showStatus('❌ Введите ID целевой группы', true);
-    return;
+    showStatus("❌ Введите ID целевой группы", true)
+    return
   }
 
   if (currentMembers.length === 0) {
-    showStatus('❌ Сначала загрузите участников', true);
-    return;
+    showStatus("❌ Сначала загрузите участников", true)
+    return
   }
 
-  const progressArea = document.getElementById('progress-area') as HTMLDivElement;
-  const progressBar = document.getElementById('progress-bar') as HTMLProgressElement;
-  const progressText = document.getElementById('progress-text') as HTMLSpanElement;
-  
-  progressArea.style.display = 'block';
-  addMembersBtn.disabled = true;
+  const progressArea = document.getElementById(
+    "progress-area",
+  ) as HTMLDivElement
+  const progressBar = document.getElementById(
+    "progress-bar",
+  ) as HTMLProgressElement
+  const progressText = document.getElementById(
+    "progress-text",
+  ) as HTMLSpanElement
 
-  // Подписываемся на прогресс
-  window.electronAPI.onProgress((current, total) => {
-    const percent = (current / total) * 100;
-    progressBar.value = percent;
-    progressText.textContent = `${current}/${total}`;
-  });
+  if (progressArea) progressArea.style.display = "block"
+  if (addMembersBtn) addMembersBtn.disabled = true
+
+  window.electronAPI.onProgress((current: number, total: number) => {
+    if (progressBar && progressText) {
+      const percent = (current / total) * 100
+      progressBar.value = percent
+      progressText.textContent = `${current}/${total}`
+    }
+  })
 
   try {
-    const excludedId = excludedUser ? parseInt(excludedUser) : undefined;
+    const excludedId = excludedUser ? parseInt(excludedUser) : undefined
     const result = await window.electronAPI.addMembers(
       parseInt(targetGroup),
       currentMembers,
-      excludedId
-    );
-    
-    // Отображаем результаты
-    const resultsDiv = document.getElementById('results') as HTMLPreElement;
-    resultsDiv.textContent = JSON.stringify(result, null, 2);
-    
-    showStatus(`✅ Добавление завершено. Успешно: ${result.success}, Ошибок: ${result.failed}`);
+      excludedId,
+    )
+
+    const resultsDiv = document.getElementById("results") as HTMLPreElement
+    if (resultsDiv) {
+      resultsDiv.textContent = JSON.stringify(result, null, 2)
+    }
+
+    showStatus(
+      `✅ Добавление завершено. Успешно: ${result.success}, Ошибок: ${result.failed}`,
+    )
   } catch (error: any) {
-    showStatus(`❌ Ошибка добавления: ${error.message}`, true);
+    showStatus(`❌ Ошибка добавления: ${error.message}`, true)
   } finally {
-    progressArea.style.display = 'none';
-    addMembersBtn.disabled = false;
-    window.electronAPI.removeListeners();
+    if (progressArea) progressArea.style.display = "none"
+    if (addMembersBtn) addMembersBtn.disabled = false
+    window.electronAPI.removeListeners()
   }
-});
+})
+
+window.addEventListener("error", (event) => {
+  console.error("Ошибка в renderer:", event.error)
+  showStatus(`❌ Ошибка: ${event.error?.message || "Неизвестная ошибка"}`, true)
+})
+
+submitCodeBtn?.addEventListener("click", async () => {
+  const codeInput = document.getElementById("code-input") as HTMLInputElement
+  const code = codeInput?.value
+
+  if (!code) {
+    showStatus("❌ Введите код подтверждения", true)
+    return
+  }
+
+  try {
+    submitCodeBtn.disabled = true
+    submitCodeBtn.textContent = "Проверка..."
+
+    const result: any = await window.electronAPI.initMTProto(code)
+
+    if (result === true) {
+      // Успешная авторизация
+      isMtProtoAuthorized = true
+      if (mtprotoStatus) {
+        mtprotoStatus.textContent = "Авторизован"
+        mtprotoStatus.className = "status-badge authorized"
+      }
+      if (loadMembersBtn) loadMembersBtn.disabled = false
+      showStatus("✅ MTProto успешно авторизован")
+      if (codeInputArea) codeInputArea.style.display = "none"
+    } else if (result === "2FA_REQUIRED") {
+      // Требуется 2FA пароль
+      requires2FA = true
+      tempCode = code
+      showStatus("🔐 Требуется двухфакторный пароль", false)
+
+      // Меняем placeholder и кнопку для ввода пароля
+      const codeInput = document.getElementById(
+        "code-input",
+      ) as HTMLInputElement
+      codeInput.placeholder = "Введите 2FA пароль"
+      submitCodeBtn.textContent = "Отправить пароль"
+    } else {
+      // Обычный код отправлен
+      showStatus("📱 Код отправлен, проверьте Telegram")
+    }
+  } catch (error: any) {
+    showStatus(`❌ Ошибка: ${error.message}`, true)
+  } finally {
+    if (submitCodeBtn) {
+      submitCodeBtn.disabled = false
+      if (!requires2FA) {
+        submitCodeBtn.textContent = "Подтвердить"
+      }
+    }
+  }
+})
+
+// Добавьте обработку 2FA пароля
+async function handle2FAPassword(password: string) {
+  try {
+    const result = await window.electronAPI.initMTProto(tempCode, password)
+
+    if (result === true) {
+      isMtProtoAuthorized = true
+      if (mtprotoStatus) {
+        mtprotoStatus.textContent = "Авторизован"
+        mtprotoStatus.className = "status-badge authorized"
+      }
+      if (loadMembersBtn) loadMembersBtn.disabled = false
+      showStatus("✅ 2FA авторизация успешна")
+      if (codeInputArea) codeInputArea.style.display = "none"
+      requires2FA = false
+    }
+  } catch (error: any) {
+    showStatus(`❌ Ошибка 2FA: ${error.message}`, true)
+  }
+}
