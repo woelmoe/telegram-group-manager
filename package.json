@@ -3,54 +3,40 @@
   "version": "1.0.0",
   "description": "Desktop application for managing Telegram group members",
   "main": "dist/main/main.js",
-  "author": "HollowOne",
+  "author": "Your Name",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "clean": "rimraf dist release session-data",
+    "clean": "rimraf dist release",
     "build": "tsc",
-    "watch": "tsc -w",
-    "start": "npm run build && electron .",
-    "dev": "concurrently \"npm run watch\" \"cross-env NODE_ENV=development electron .\"",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:linux": "npm run build && electron-builder --linux",
-    "postinstall": "electron-builder install-app-deps",
-    "rebuild": "npm run clean && npm install && npm run build"
+    "build:watch": "tsc -w",
+    "copy-assets": "node copy-assets.js",
+    "postbuild": "npm run copy-assets",
+    "start": "npm run build && npm run copy-assets && electron .",
+    "dev": "concurrently \"npm run build:watch\" \"npm run copy-assets && cross-env NODE_ENV=development electron .\"",
+    "dist": "npm run build && npm run copy-assets && electron-builder",
+    "dist:win": "npm run build && npm run copy-assets && electron-builder --win",
+    "dist:mac": "npm run build && npm run copy-assets && electron-builder --mac",
+    "dist:linux": "npm run build && npm run copy-assets && electron-builder --linux",
+    "postinstall": "electron-builder install-app-deps"
   },
-  "dependencies": {
-    "@mtcute/core": "^0.12.6",
-    "@mtcute/node": "^0.12.6",
-    "@mtcute/client": "^0.12.6",
-    "@mtcute/dispatcher": "^0.12.6",
-    "@mtcute/html-parser": "^0.12.6",
-    "@mtcute/markdown-parser": "^0.12.6",
-    "grammy": "^1.21.1",
-    "dotenv": "^16.4.1",
-    "better-sqlite3": "^9.4.3",
-    "sqlite3": "^5.1.7",
-    "chalk": "^5.3.0",
-    "electron-log": "^5.1.1",
-    "electron-updater": "^6.1.7",
-    "electron-store": "^8.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@types/node": "^20.11.16",
-    "@types/better-sqlite3": "^7.6.9",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
-    "typescript": "^5.3.3",
-    "electron": "^28.1.4",
-    "electron-builder": "^24.13.3",
-    "electron-devtools-installer": "^3.2.0",
-    "concurrently": "^8.2.2",
-    "cross-env": "^7.0.3",
-    "rimraf": "^5.0.5",
-    "nodemon": "^3.0.3",
-    "ts-node": "^10.9.2",
-    "eslint": "^8.56.0",
-    "eslint-plugin-import": "^2.29.1"
+    "@mtcute/core": "0.12.6",
+    "@mtcute/node": "0.12.6",
+    "grammy": "1.21.1",
+    "dotenv": "16.4.5",
+    "electron-log": "5.1.1",
+    "electron-store": "8.1.0",
+    "@types/node": "20.11.16",
+    "typescript": "5.3.3",
+    "electron": "28.2.0",
+    "electron-builder": "24.13.3",
+    "concurrently": "8.2.2",
+    "cross-env": "7.0.3",
+    "rimraf": "5.0.5",
+    "copyfiles": "2.4.1",
+    "ts-node": "10.9.2"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -71,31 +57,11 @@
       "!**/*.ts",
       "!**/*.map",
       "!**/test/**",
-      "!**/__tests__/**"
-    ],
-    "extraResources": [
-      {
-        "from": "session-data",
-        "to": "session-data",
-        "filter": [
-          "**/*"
-        ]
-      }
+      "!.env"
     ],
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64",
-            "ia32"
-          ]
-        }
-      ],
-      "icon": "build/icon.ico",
-      "publisherName": "Your Name",
-      "certificateFile": "cert.pfx",
-      "verifyUpdateCodeSignature": false
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -110,26 +76,7 @@
         "zip"
       ],
       "icon": "build/icon.icns",
-      "category": "public.app-category.social-networking",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
-    },
-    "dmg": {
-      "contents": [
-        {
-          "x": 410,
-          "y": 150,
-          "type": "link",
-          "path": "/Applications"
-        },
-        {
-          "x": 130,
-          "y": 150,
-          "type": "file"
-        }
-      ]
+      "category": "public.app-category.social-networking"
     },
     "linux": {
       "target": [
@@ -138,14 +85,7 @@
         "rpm"
       ],
       "icon": "build/icon.png",
-      "category": "Network",
-      "maintainer": "Your Name"
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "releaseType": "release"
-      }
-    ]
+      "category": "Network"
+    }
   }
 }
