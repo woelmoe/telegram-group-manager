@@ -22,8 +22,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@mtcute/core": "0.12.6",
-    "@mtcute/node": "0.12.6",
+    "teleproto": "1.223.1",
     "grammy": "1.21.1",
     "dotenv": "16.4.5",
     "electron-log": "5.1.1",
